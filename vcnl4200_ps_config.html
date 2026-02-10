@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VCNL4200 PS Register Configurator</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0e14;
+    --surface: #141720;
+    --surface2: #1a1e2c;
+    --border: #2a2f42;
+    --border-hi: #3d4460;
+    --text: #c8cdd8;
+    --text-dim: #6b7394;
+    --text-bright: #e8ecf4;
+    --accent: #4fc3f7;
+    --accent2: #7c4dff;
+    --accent3: #00e5a0;
+    --bit0: #ff6b6b;
+    --bit1: #4fc3f7;
+    --warn: #ffb74d;
+    --hex-bg: #1c2233;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Noto Sans KR', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .header {
+    background: linear-gradient(135deg, #141720 0%, #1a1e2c 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 32px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .header-chip {
+    background: var(--accent);
+    color: var(--bg);
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .header h1 {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-bright);
+    letter-spacing: -0.5px;
+  }
+
+  .header h1 span { color: var(--accent); }
+
+  .header-sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-left: auto;
+    font-family: var(--mono);
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+  }
+
+  .registers { display: flex; flex-direction: column; gap: 16px; }
+
+  .reg-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .reg-card:hover { border-color: var(--border-hi); }
+
+  .reg-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    gap: 12px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .reg-addr {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--accent);
+    background: rgba(79,195,247,0.1);
+    padding: 3px 8px;
+    border-radius: 4px;
+    min-width: 48px;
+    text-align: center;
+  }
+
+  .reg-name {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-bright);
+  }
+
+  .reg-hex {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--accent3);
+    background: rgba(0,229,160,0.08);
+    padding: 4px 12px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+  }
+
+  .reg-body { padding: 12px 16px; }
+
+  .bit-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    gap: 12px;
+    border-bottom: 1px solid rgba(42,47,66,0.5);
+  }
+
+  .bit-row:last-child { border-bottom: none; }
+
+  .bit-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    min-width: 40px;
+    text-align: center;
+  }
+
+  .field-name {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--warn);
+    min-width: 110px;
+  }
+
+  .field-name.reserved { color: var(--text-dim); opacity: 0.5; }
+
+  .field-select {
+    background: var(--hex-bg);
+    color: var(--text-bright);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    flex: 1;
+    max-width: 420px;
+    transition: border-color 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b7394'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 24px;
+  }
+
+  .field-select:hover { border-color: var(--accent); }
+  .field-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,195,247,0.15); }
+
+  .field-input {
+    background: var(--hex-bg);
+    color: var(--text-bright);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    width: 100px;
+    transition: border-color 0.2s;
+  }
+
+  .field-input:hover { border-color: var(--accent); }
+  .field-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,195,247,0.15); }
+
+  .field-input.wide { width: 100%; max-width: 200px; }
+
+  /* Sidebar */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: sticky;
+    top: 24px;
+    align-self: start;
+  }
+
+  .output-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .output-header {
+    padding: 12px 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-bright);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .output-header .dot {
+    width: 8px; height: 8px;
+    background: var(--accent3);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .output-body { padding: 16px; }
+
+  .hex-output-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(42,47,66,0.5);
+  }
+
+  .hex-output-row:last-child { border-bottom: none; }
+
+  .hex-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .hex-value {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--accent3);
+    letter-spacing: 1px;
+  }
+
+  .bits-visual {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .code-block {
+    background: var(--hex-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.7;
+    color: var(--text);
+    white-space: pre;
+    overflow-x: auto;
+    position: relative;
+  }
+
+  .code-block .kw { color: var(--accent2); }
+  .code-block .hex { color: var(--accent3); }
+  .code-block .cmt { color: var(--text-dim); }
+  .code-block .fn { color: var(--accent); }
+  .code-block .num { color: var(--bit0); }
+
+  .copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  .bit-visual-strip {
+    display: flex;
+    gap: 2px;
+    margin-top: 4px;
+  }
+
+  .bit-cell {
+    width: 28px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 3px;
+    background: var(--hex-bg);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+
+  .bit-cell.one { background: rgba(79,195,247,0.15); color: var(--accent); border-color: rgba(79,195,247,0.3); }
+
+  .bit-numbers {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 2px;
+  }
+
+  .bit-num {
+    width: 28px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    opacity: 0.6;
+  }
+
+  .section-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    margin-bottom: 6px;
+    margin-top: 12px;
+  }
+
+  .section-label:first-child { margin-top: 0; }
+
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-primary {
+    background: rgba(79,195,247,0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .btn-primary:hover { background: rgba(79,195,247,0.2); }
+
+  .write-seq {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    line-height: 2;
+  }
+
+  .write-seq .addr { color: var(--accent); }
+  .write-seq .val { color: var(--accent3); font-weight: 700; }
+  .write-seq .arrow { color: var(--text-dim); margin: 0 4px; }
+
+  @media (max-width: 900px) {
+    .container {
+      grid-template-columns: 1fr;
+    }
+    .sidebar {
+      position: static;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-chip">VISHAY</div>
+  <h1>VCNL4200 <span>PS</span> Register Config</h1>
+  <div class="header-sub">Proximity Sensor Only</div>
+</div>
+
+<div class="container">
+  <div class="registers">
+
+    <!-- PS_CONF1 (0x03_L) -->
+    <div class="reg-card">
+      <div class="reg-header">
+        <div class="reg-addr">0x03</div>
+        <div class="reg-name">PS_CONF1 (Low)</div>
+        <div class="reg-hex" id="hex-03L">0x01</div>
+      </div>
+      <div class="reg-body">
+        <div class="bit-row">
+          <div class="bit-label">[7:6]</div>
+          <div class="field-name">PS_Duty</div>
+          <select class="field-select" id="ps_duty" onchange="update()">
+            <option value="0">00 — 1/160 (가장 빠름)</option>
+            <option value="1">01 — 1/320</option>
+            <option value="2">10 — 1/640</option>
+            <option value="3">11 — 1/1280 (최저전력)</option>
+          </select>
+        </div>
+        <div class="bit-row">
+          <div class="bit-label">[5:4]</div>
+          <div class="field-name">PS_PERS</div>
+          <select class="field-select" id="ps_pers" onchange="update()">
+            <option value="0">00 — 1회</option>
+            <option value="1">01 — 2회</option>
+            <option value="2">10 — 3회</option>
+            <option value="3">11 — 4회</option>
+          </select>
+        </div>
+        <div class="bit-row">
+          <div class="bit-label">[3:1]</div>
+          <div class="field-name">PS_IT</div>
+          <select class="field-select" id="ps_it" onchange="update()">
+            <option value="0">000 — 1T (~30μs)</option>
+            <option value="1">001 — 1.5T (~45μs)</option>
+            <option value="2">010 — 2T (~60μs)</option>
+            <option value="3">011 — 4T (~120μs)</option>
+            <option value="4">100 — 8T (~240μs)</option>
+            <option value="5">101 — 9T (~270μs)</option>
+          </select>
+        </div>
+        <div class="bit-row">
+          <div class="bit-label">[0]</div>
+          <div class="field-name">PS_SD</div>
+          <select class="field-select" id="ps_sd" onchange="update()">
+            <option value="0">0 — PS Power ON</option>
+            <option value="1" selected>1 — PS Shutdown (기본)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- PS_CONF2 (0x03_H) -->
+    <div class="reg-card">
+      <div class="reg-header">
+        <div class="reg-addr">0x03</div>
+        <div class="reg-name">PS_CONF2 (High)</div>
+        <div class="reg-hex" id="hex-03H">0x00</div>
+      </div>
+      <div class="reg-body">
+        <div class="bit-row">
+          <div class="bit-label">[3]</div>
+          <div class="field-name">PS_HD</div>
+          <select class="field-select" id="ps_hd" onchange="update()">
+            <option value="0">0 — 12비트 출력 (0~4095)</option>
+            <option value="1">1 — 16비트 출력 (0~65535)</option>
+          </select>
+        </div>
+        <div class="bit-row">
+          <div class="bit-label">[1:0]</div>
+          <div class="field-name">PS_INT</div>
+          <select class="field-select" id="ps_int" onchange="update()">
+            <option value="0">00 — 인터럽트 비활성 (폴링)</option>
+            <option value="1">01 — Closing만 (THDH 초과)</option>
+            <option value="2">10 — Away만 (THDL 미만)</option>
+            <option value="3">11 — Closing + Away</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- PS_CONF3 (0x04_L) -->
+    <div class="reg-card">
+      <div class="reg-header">
+        <div class="reg-addr">0x04</div>
+        <div class="reg-name">PS_CONF3 (Low)</div>
+        <div class="reg-hex" id="hex-04L">0x00</div>
+      </div>
+      <div class="reg-body">
+        <div class="bit-row">
+          <div class="bit-label">[6:5]</div>
+          <div class="field-name">PS_MPS</div>
+          <select class="field-select" id="ps_mps" onchange="update()">
+            <option value="0">00 — 1 펄스</option>
+            <option value="1">01 — 2 펄스</option>
+            <option value="2">10 — 4 펄스</option>
+            <option value="3">11 — 8 펄스</option>
+          </select>
+        </div>
+        <div class="bit-row">
+          <div class="bit-label">[4]</div>
+          <div class="field-name">PS_SMART_PERS</div>
+          <select class="field-select" id="ps_smart_pers" onchange="update()">
+            <option value="0">0 — 비활성</option>
+            <option value="1">1 — 활성 (빠른 응답)</option>
+          </select>
+        </div>
+        <div class="bit-row">
+          <div class="bit-label">[3]</div>
+          <div class="field-name">PS_AF</div>
+          <select class="field-select" id="ps_af" onchange="update()">
+            <option value="0">0 — Normal (자동 연속 측정)</option>
+            <option value="1">1 — Active Force (트리거 측정)</option>
+          </select>
+        </div>
+        <div class="bit-row">
+          <div class="bit-label">[2]</div>
+          <div class="field-name">PS_TRIG</div>
+          <select class="field-select" id="ps_trig" onchange="update()">
+            <option value="0">0 — No trigger</option>
+            <option value="1">1 — 1회 트리거 (자동 복귀)</option>
+          </select>
+        </div>
+        <div class="bit-row">
+          <div class="bit-label">[1]</div>
+          <div class="field-name">PS_SC_ADV</div>
+          <select class="field-select" id="ps_sc_adv" onchange="update()">
+            <option value="0">0 — 기본 태양광 내성</option>
+            <option value="1">1 — 2× 태양광 내성</option>
+          </select>
+        </div>
+        <div class="bit-row">
+          <div class="bit-label">[0]</div>
+          <div class="field-name">PS_SC_EN</div>
+          <select class="field-select" id="ps_sc_en" onchange="update()">
+            <option value="0">0 — 태양광 상쇄 OFF</option>
+            <option value="1">1 — 태양광 상쇄 ON</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- PS_MS (0x04_H) -->
+    <div class="reg-card">
+      <div class="reg-header">
+        <div class="reg-addr">0x04</div>
+        <div class="reg-name">PS_MS (High)</div>
+        <div class="reg-hex" id="hex-04H">0x00</div>
+      </div>
+      <div class="reg-body">
+        <div class="bit-row">
+          <div class="bit-label">[5]</div>
+          <div class="field-name">PS_MS</div>
+          <select class="field-select" id="ps_ms" onchange="update()">
+            <option value="0">0 — Normal + Interrupt</option>
+            <option value="1">1 — Logic Output Mode</option>
+          </select>
+        </div>
+        <div class="bit-row">
+          <div class="bit-label">[4]</div>
+          <div class="field-name">PS_SP</div>
+          <select class="field-select" id="ps_sp" onchange="update()">
+            <option value="0">0 — 기본 태양광 보상</option>
+            <option value="1">1 — 1.5× 태양광 보상</option>
+          </select>
+        </div>
+        <div class="bit-row">
+          <div class="bit-label">[3]</div>
+          <div class="field-name">PS_SPO</div>
+          <select class="field-select" id="ps_spo" onchange="update()">
+            <option value="0">0 — 보호모드 출력 0x00</option>
+            <option value="1">1 — 보호모드 출력 0xFF</option>
+          </select>
+        </div>
+        <div class="bit-row">
+          <div class="bit-label">[2:0]</div>
+          <div class="field-name">LED_I</div>
+          <select class="field-select" id="led_i" onchange="update()">
+            <option value="0">000 — 50 mA</option>
+            <option value="1">001 — 75 mA</option>
+            <option value="2">010 — 100 mA</option>
+            <option value="3">011 — 120 mA</option>
+            <option value="4">100 — 140 mA</option>
+            <option value="5">101 — 160 mA</option>
+            <option value="6">110 — 180 mA</option>
+            <option value="7">111 — 200 mA</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- PS_CANC (0x05) -->
+    <div class="reg-card">
+      <div class="reg-header">
+        <div class="reg-addr">0x05</div>
+        <div class="reg-name">PS_CANC (16-bit)</div>
+        <div class="reg-hex" id="hex-05">0x0000</div>
+      </div>
+      <div class="reg-body">
+        <div class="bit-row">
+          <div class="bit-label">[15:0]</div>
+          <div class="field-name">PS_CANC</div>
+          <input type="number" class="field-input wide" id="ps_canc" value="0" min="0" max="65535" onchange="update()" oninput="update()" placeholder="0~65535">
+          <span style="font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-left:8px">크로스토크 오프셋</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PS_THDL (0x06) -->
+    <div class="reg-card">
+      <div class="reg-header">
+        <div class="reg-addr">0x06</div>
+        <div class="reg-name">PS_THDL (16-bit)</div>
+        <div class="reg-hex" id="hex-06">0x0000</div>
+      </div>
+      <div class="reg-body">
+        <div class="bit-row">
+          <div class="bit-label">[15:0]</div>
+          <div class="field-name">PS_THDL</div>
+          <input type="number" class="field-input wide" id="ps_thdl" value="0" min="0" max="65535" onchange="update()" oninput="update()" placeholder="0~65535">
+          <span style="font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-left:8px">Low 임계값 (Away)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PS_THDH (0x07) -->
+    <div class="reg-card">
+      <div class="reg-header">
+        <div class="reg-addr">0x07</div>
+        <div class="reg-name">PS_THDH (16-bit)</div>
+        <div class="reg-hex" id="hex-07">0x0000</div>
+      </div>
+      <div class="reg-body">
+        <div class="bit-row">
+          <div class="bit-label">[15:0]</div>
+          <div class="field-name">PS_THDH</div>
+          <input type="number" class="field-input wide" id="ps_thdh" value="0" min="0" max="65535" onchange="update()" oninput="update()" placeholder="0~65535">
+          <span style="font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-left:8px">High 임계값 (Closing)</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <!-- HEX Summary -->
+    <div class="output-card">
+      <div class="output-header">
+        <div class="dot"></div>
+        I2C Write Sequence
+      </div>
+      <div class="output-body">
+        <div class="section-label">Command → [Low, High]</div>
+        <div class="write-seq" id="write-seq"></div>
+      </div>
+    </div>
+
+    <!-- Bit Visual -->
+    <div class="output-card">
+      <div class="output-header">Bit Map</div>
+      <div class="output-body" id="bit-visual"></div>
+    </div>
+
+    <!-- C Code -->
+    <div class="output-card">
+      <div class="output-header">C Code (STM32 HAL)</div>
+      <div class="output-body" style="padding:0;">
+        <div class="code-block" id="c-code"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="copyCode()">📋 Copy Code</button>
+        <button class="btn" onclick="resetAll()">↺ Reset</button>
+      </div>
+    </div>
+
+    <!-- Preset -->
+    <div class="output-card">
+      <div class="output-header">Presets</div>
+      <div class="btn-row" style="flex-wrap:wrap;">
+        <button class="btn" onclick="presetGate()" style="flex:1 1 45%">🚪 게이트 (실내)</button>
+        <button class="btn" onclick="presetGateOutdoor()" style="flex:1 1 45%">☀️ 게이트 (실외)</button>
+        <button class="btn" onclick="presetLowPower()" style="flex:1 1 45%">🔋 저전력</button>
+        <button class="btn" onclick="presetMaxRange()" style="flex:1 1 45%">📡 최대거리</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function getVal(id) { return parseInt(document.getElementById(id).value); }
+function setVal(id, v) { document.getElementById(id).value = v; }
+
+function calcRegisters() {
+  // 0x03_L: PS_CONF1
+  const conf1 = (getVal('ps_duty') << 6) | (getVal('ps_pers') << 4) | (getVal('ps_it') << 1) | getVal('ps_sd');
+  // 0x03_H: PS_CONF2
+  const conf2 = (getVal('ps_hd') << 3) | getVal('ps_int');
+  // 0x04_L: PS_CONF3
+  const conf3 = (getVal('ps_mps') << 5) | (getVal('ps_smart_pers') << 4) | (getVal('ps_af') << 3) | (getVal('ps_trig') << 2) | (getVal('ps_sc_adv') << 1) | getVal('ps_sc_en');
+  // 0x04_H: PS_MS
+  const ms = (getVal('ps_ms') << 5) | (getVal('ps_sp') << 4) | (getVal('ps_spo') << 3) | getVal('led_i');
+  // 0x05: PS_CANC
+  let canc = getVal('ps_canc');
+  if (isNaN(canc) || canc < 0) canc = 0;
+  if (canc > 65535) canc = 65535;
+  // 0x06: PS_THDL
+  let thdl = getVal('ps_thdl');
+  if (isNaN(thdl) || thdl < 0) thdl = 0;
+  if (thdl > 65535) thdl = 65535;
+  // 0x07: PS_THDH
+  let thdh = getVal('ps_thdh');
+  if (isNaN(thdh) || thdh < 0) thdh = 0;
+  if (thdh > 65535) thdh = 65535;
+
+  return {
+    conf1, conf2, conf3, ms, canc, thdl, thdh,
+    word03: (conf2 << 8) | conf1,
+    word04: (ms << 8) | conf3,
+    word05: canc,
+    word06: thdl,
+    word07: thdh
+  };
+}
+
+function hex8(v) { return '0x' + v.toString(16).toUpperCase().padStart(2, '0'); }
+function hex16(v) { return '0x' + v.toString(16).toUpperCase().padStart(4, '0'); }
+function bin8(v) { return v.toString(2).padStart(8, '0'); }
+
+function bitCells(val) {
+  const b = bin8(val);
+  let nums = '';
+  let cells = '';
+  for (let i = 7; i >= 0; i--) {
+    nums += `<div class="bit-num">${i}</div>`;
+    cells += `<div class="bit-cell ${b[7-i]==='1'?'one':''}">${b[7-i]}</div>`;
+  }
+  return `<div class="bit-numbers">${nums}</div><div class="bit-visual-strip">${cells}</div>`;
+}
+
+function update() {
+  const r = calcRegisters();
+
+  document.getElementById('hex-03L').textContent = hex8(r.conf1);
+  document.getElementById('hex-03H').textContent = hex8(r.conf2);
+  document.getElementById('hex-04L').textContent = hex8(r.conf3);
+  document.getElementById('hex-04H').textContent = hex8(r.ms);
+  document.getElementById('hex-05').textContent = hex16(r.canc);
+  document.getElementById('hex-06').textContent = hex16(r.thdl);
+  document.getElementById('hex-07').textContent = hex16(r.thdh);
+
+  // Write sequence
+  const ws = document.getElementById('write-seq');
+  ws.innerHTML =
+    `<span class="addr">0x03</span><span class="arrow">→</span>[<span class="val">${hex8(r.conf1)}</span>, <span class="val">${hex8(r.conf2)}</span>]  <span style="color:var(--text-dim)">${hex16(r.word03)}</span><br>` +
+    `<span class="addr">0x04</span><span class="arrow">→</span>[<span class="val">${hex8(r.conf3)}</span>, <span class="val">${hex8(r.ms)}</span>]  <span style="color:var(--text-dim)">${hex16(r.word04)}</span><br>` +
+    `<span class="addr">0x05</span><span class="arrow">→</span>[<span class="val">${hex8(r.canc & 0xFF)}</span>, <span class="val">${hex8((r.canc >> 8) & 0xFF)}</span>]  <span style="color:var(--text-dim)">${hex16(r.word05)}</span><br>` +
+    `<span class="addr">0x06</span><span class="arrow">→</span>[<span class="val">${hex8(r.thdl & 0xFF)}</span>, <span class="val">${hex8((r.thdl >> 8) & 0xFF)}</span>]  <span style="color:var(--text-dim)">${hex16(r.word06)}</span><br>` +
+    `<span class="addr">0x07</span><span class="arrow">→</span>[<span class="val">${hex8(r.thdh & 0xFF)}</span>, <span class="val">${hex8((r.thdh >> 8) & 0xFF)}</span>]  <span style="color:var(--text-dim)">${hex16(r.word07)}</span>`;
+
+  // Bit visual
+  const bv = document.getElementById('bit-visual');
+  bv.innerHTML =
+    `<div class="section-label">0x03 — PS_CONF1 | PS_CONF2</div>${bitCells(r.conf1)}<div style="margin-top:6px">${bitCells(r.conf2)}</div>` +
+    `<div class="section-label">0x04 — PS_CONF3 | PS_MS</div>${bitCells(r.conf3)}<div style="margin-top:6px">${bitCells(r.ms)}</div>`;
+
+  // C Code
+  const code = document.getElementById('c-code');
+  const codeText =
+`<span class="cmt">// VCNL4200 PS Configuration</span>
+<span class="cmt">// I2C Addr: 0x51 (7-bit)</span>
+<span class="kw">#define</span> VCNL4200_ADDR  (<span class="hex">0x51</span> << 1)
+
+<span class="kw">uint16_t</span> conf12 = <span class="hex">${hex16(r.word03)}</span>;
+<span class="kw">uint16_t</span> conf3ms = <span class="hex">${hex16(r.word04)}</span>;
+<span class="kw">uint16_t</span> canc = <span class="hex">${hex16(r.word05)}</span>;
+<span class="kw">uint16_t</span> thdl = <span class="hex">${hex16(r.word06)}</span>;
+<span class="kw">uint16_t</span> thdh = <span class="hex">${hex16(r.word07)}</span>;
+
+<span class="fn">HAL_I2C_Mem_Write</span>(&hi2c1, VCNL4200_ADDR,
+  <span class="hex">0x03</span>, 1, (<span class="kw">uint8_t</span>*)&conf12, 2,
+  <span class="num">100</span>);
+<span class="fn">HAL_I2C_Mem_Write</span>(&hi2c1, VCNL4200_ADDR,
+  <span class="hex">0x04</span>, 1, (<span class="kw">uint8_t</span>*)&conf3ms, 2,
+  <span class="num">100</span>);
+<span class="fn">HAL_I2C_Mem_Write</span>(&hi2c1, VCNL4200_ADDR,
+  <span class="hex">0x05</span>, 1, (<span class="kw">uint8_t</span>*)&canc, 2,
+  <span class="num">100</span>);
+<span class="fn">HAL_I2C_Mem_Write</span>(&hi2c1, VCNL4200_ADDR,
+  <span class="hex">0x06</span>, 1, (<span class="kw">uint8_t</span>*)&thdl, 2,
+  <span class="num">100</span>);
+<span class="fn">HAL_I2C_Mem_Write</span>(&hi2c1, VCNL4200_ADDR,
+  <span class="hex">0x07</span>, 1, (<span class="kw">uint8_t</span>*)&thdh, 2,
+  <span class="num">100</span>);`;
+
+  code.innerHTML = codeText + `\n<button class="copy-btn" onclick="copyCode()">Copy</button>`;
+}
+
+function copyCode() {
+  const r = calcRegisters();
+  const plain =
+`// VCNL4200 PS Configuration
+// I2C Addr: 0x51 (7-bit)
+#define VCNL4200_ADDR  (0x51 << 1)
+
+uint16_t conf12 = ${hex16(r.word03)};
+uint16_t conf3ms = ${hex16(r.word04)};
+uint16_t canc = ${hex16(r.word05)};
+uint16_t thdl = ${hex16(r.word06)};
+uint16_t thdh = ${hex16(r.word07)};
+
+HAL_I2C_Mem_Write(&hi2c1, VCNL4200_ADDR,
+  0x03, 1, (uint8_t*)&conf12, 2, 100);
+HAL_I2C_Mem_Write(&hi2c1, VCNL4200_ADDR,
+  0x04, 1, (uint8_t*)&conf3ms, 2, 100);
+HAL_I2C_Mem_Write(&hi2c1, VCNL4200_ADDR,
+  0x05, 1, (uint8_t*)&canc, 2, 100);
+HAL_I2C_Mem_Write(&hi2c1, VCNL4200_ADDR,
+  0x06, 1, (uint8_t*)&thdl, 2, 100);
+HAL_I2C_Mem_Write(&hi2c1, VCNL4200_ADDR,
+  0x07, 1, (uint8_t*)&thdh, 2, 100);`;
+
+  navigator.clipboard.writeText(plain).then(() => {
+    const btn = document.querySelector('.btn-primary');
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = '📋 Copy Code', 1500);
+  });
+}
+
+function resetAll() {
+  setVal('ps_duty', 0); setVal('ps_pers', 0); setVal('ps_it', 0); setVal('ps_sd', 1);
+  setVal('ps_hd', 0); setVal('ps_int', 0);
+  setVal('ps_mps', 0); setVal('ps_smart_pers', 0); setVal('ps_af', 0); setVal('ps_trig', 0);
+  setVal('ps_sc_adv', 0); setVal('ps_sc_en', 0);
+  setVal('ps_ms', 0); setVal('ps_sp', 0); setVal('ps_spo', 0); setVal('led_i', 0);
+  setVal('ps_canc', 0); setVal('ps_thdl', 0); setVal('ps_thdh', 0);
+  update();
+}
+
+function presetGate() {
+  setVal('ps_duty', 0); setVal('ps_pers', 3); setVal('ps_it', 5); setVal('ps_sd', 0);
+  setVal('ps_hd', 1); setVal('ps_int', 3);
+  setVal('ps_mps', 2); setVal('ps_smart_pers', 1); setVal('ps_af', 0); setVal('ps_trig', 0);
+  setVal('ps_sc_adv', 0); setVal('ps_sc_en', 0);
+  setVal('ps_ms', 0); setVal('ps_sp', 0); setVal('ps_spo', 0); setVal('led_i', 5);
+  setVal('ps_canc', 0); setVal('ps_thdl', 800); setVal('ps_thdh', 1500);
+  update();
+}
+
+function presetGateOutdoor() {
+  setVal('ps_duty', 0); setVal('ps_pers', 3); setVal('ps_it', 5); setVal('ps_sd', 0);
+  setVal('ps_hd', 1); setVal('ps_int', 3);
+  setVal('ps_mps', 3); setVal('ps_smart_pers', 1); setVal('ps_af', 0); setVal('ps_trig', 0);
+  setVal('ps_sc_adv', 1); setVal('ps_sc_en', 1);
+  setVal('ps_ms', 0); setVal('ps_sp', 1); setVal('ps_spo', 1); setVal('led_i', 7);
+  setVal('ps_canc', 0); setVal('ps_thdl', 800); setVal('ps_thdh', 1500);
+  update();
+}
+
+function presetLowPower() {
+  setVal('ps_duty', 3); setVal('ps_pers', 1); setVal('ps_it', 0); setVal('ps_sd', 0);
+  setVal('ps_hd', 0); setVal('ps_int', 1);
+  setVal('ps_mps', 0); setVal('ps_smart_pers', 0); setVal('ps_af', 0); setVal('ps_trig', 0);
+  setVal('ps_sc_adv', 0); setVal('ps_sc_en', 0);
+  setVal('ps_ms', 0); setVal('ps_sp', 0); setVal('ps_spo', 0); setVal('led_i', 0);
+  setVal('ps_canc', 0); setVal('ps_thdl', 200); setVal('ps_thdh', 500);
+  update();
+}
+
+function presetMaxRange() {
+  setVal('ps_duty', 0); setVal('ps_pers', 3); setVal('ps_it', 5); setVal('ps_sd', 0);
+  setVal('ps_hd', 1); setVal('ps_int', 0);
+  setVal('ps_mps', 3); setVal('ps_smart_pers', 1); setVal('ps_af', 0); setVal('ps_trig', 0);
+  setVal('ps_sc_adv', 0); setVal('ps_sc_en', 0);
+  setVal('ps_ms', 0); setVal('ps_sp', 0); setVal('ps_spo', 0); setVal('led_i', 7);
+  setVal('ps_canc', 0); setVal('ps_thdl', 0); setVal('ps_thdh', 0);
+  update();
+}
+
+update();
+</script>
+</body>
+</html>
